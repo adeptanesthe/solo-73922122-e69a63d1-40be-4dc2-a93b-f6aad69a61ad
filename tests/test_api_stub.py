@@ -156,8 +156,15 @@ from app.schemas import (  # noqa: E402
     EvaluateResponse,
     TraceEntry,
     EffectivePolicy,
+    IntegrityStatusResponse,
 )
-from app.main import app, evaluate_events  # noqa: E402
+from app.main import (  # noqa: E402
+    app,
+    evaluate_events,
+    integrity_recheck,
+    integrity_status,
+    monitor,
+)
 from fastapi import HTTPException as RealHTTPException  # noqa: E402
 
 
@@ -191,6 +198,8 @@ def check(name, cond, detail=""):
 print("test_app_wiring")
 paths = {(r.method, r.path) for r in app.routes}
 check("注册了评估端点", ("POST", "/api/v1/evaluate") in paths)
+check("注册了完整性状态端点", ("GET", "/api/v1/integrity/status") in paths)
+check("注册了手动复核端点", ("POST", "/api/v1/integrity/recheck") in paths)
 check("注册了健康检查", ("GET", "/health") in paths)
 check("根路径重定向已注册", ("GET", "/") in paths)
 
@@ -253,6 +262,17 @@ try:
     check("缺 child_pid 报 422", False, "未抛异常")
 except RealHTTPException as exc:
     check("缺 child_pid 报 422", exc.status_code == 422)
+
+print("test_integrity_endpoints")
+check("监视器未启动时状态为待复核", monitor.get_status()["status"] == "pending")
+resp = integrity_status()
+check("状态端点返回响应模型", isinstance(resp, IntegrityStatusResponse))
+check("状态字段为四态之一", resp.status in ("intact", "anomaly", "pending", "unknown"))
+check("状态中文名", resp.status_text == "待复核")
+check("含原因说明", isinstance(resp.reason, str) and len(resp.reason) > 0)
+check("含限制参数", isinstance(resp.limits, dict) and resp.limits["max_files"] == 100)
+check("未启动时手动复核为空操作", integrity_recheck().status == "pending")
+check("未启动时不建立监视", monitor.get_status()["watch_active"] is False)
 
 print()
 if failures:

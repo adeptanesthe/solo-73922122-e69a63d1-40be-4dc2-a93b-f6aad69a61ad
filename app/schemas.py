@@ -122,3 +122,44 @@ class EvaluateResponse(BaseModel):
     events_evaluated: int = Field(description="实际评估的事件数；遇首个失败即停止")
     policy_effective: EffectivePolicy = Field(description="归一化后实际生效的策略")
     trace: list[TraceEntry] = Field(description="逐事件的完整判定轨迹")
+
+
+# --------------------------------------------------------------------------- #
+# 配置目录完整性监测
+# --------------------------------------------------------------------------- #
+class IntegrityDiff(BaseModel):
+    type: str = Field(
+        description="差异类型：missing 缺失 / added 新增 / modified 内容改变 / "
+        "not_regular 非普通文件 / too_large 超过1MiB / too_many_files 文件数超限 / "
+        "too_many_entries 目录项过多 / unreadable 无法读取"
+    )
+    file: Optional[str] = Field(default=None, description="涉及的单层文件名；目录级差异为 null")
+    detail: str = Field(description="差异的具体说明")
+
+
+class IntegrityLimits(BaseModel):
+    max_files: int = Field(description="单层普通文件数量上限")
+    max_file_size_bytes: int = Field(description="单文件大小上限（字节）")
+    single_level: bool = Field(description="是否只检查目录第一层（不递归）")
+    follow_symlinks: bool = Field(description="是否跟随软链接（恒为 false）")
+
+
+class IntegrityStatusResponse(BaseModel):
+    status: Literal["intact", "anomaly", "pending", "unknown"] = Field(
+        description="intact 完整 / anomaly 异常 / pending 待复核 / unknown 未知"
+    )
+    status_text: str = Field(description="状态中文名：完整 / 异常 / 待复核 / 未知")
+    reason: str = Field(description="当前状态的原因说明")
+    directory: Optional[str] = Field(default=None, description="被监视的配置目录")
+    manifest_path: str = Field(description="可信清单路径（启动时加载）")
+    manifest_files: int = Field(description="清单固定的文件数量")
+    watch_active: bool = Field(description="inotify 监视当前是否有效")
+    generation: int = Field(description="状态世代号：每次变更通知/监视失效递增")
+    recheck_delay_seconds: float = Field(description="收到变更通知后延迟复核的秒数")
+    last_change_at: Optional[str] = Field(default=None, description="最近一次变更通知时间（UTC）")
+    last_recheck_at: Optional[str] = Field(default=None, description="最近一次全量复核完成时间（UTC）")
+    pending_since: Optional[str] = Field(default=None, description="进入待复核状态的时间（UTC）")
+    limits: IntegrityLimits = Field(description="完整性检查的限制参数")
+    diffs: list[IntegrityDiff] = Field(
+        default_factory=list, description="状态为异常时的全部差异明细，其余状态为空"
+    )

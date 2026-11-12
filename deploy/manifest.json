@@ -1,0 +1,8 @@
+{
+  "directory": "/etc/integrity-demo",
+  "files": {
+    "app.conf": "efab1b68089f7ce96281ff7af62336446a4935ac68d6447a63a5024241cc4981",
+    "db.conf": "100f9639374c05314b303102ea01fd8a6c557245616023c2aa9583e68abc36a6",
+    "logging.conf": "aeb6d98564d44b8a34d732931a59ea12fab16ac486187bd5501a74fc9b61a230"
+  }
+}

@@ -3,13 +3,25 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: systemd-sandbox-checker:1.0.0
+    image: systemd-sandbox-checker:1.1.0
     container_name: systemd-sandbox-checker
     ports:
       # 宿主机 8080 -> 容器 8080；如端口冲突可修改左侧
       - "8080:8080"
+    environment:
+      # 可信启动配置：清单在容器内的路径（只读挂载）
+      INTEGRITY_MANIFEST_PATH: /etc/integrity/manifest.json
+      # 复核延迟（秒）：收到变更通知后延迟多久做全量复核，演示时可调大以观察“待复核”
+      INTEGRITY_RECHECK_DELAY: "${INTEGRITY_RECHECK_DELAY:-1.0}"
+      # 监视失效后的重建重试间隔（秒）
+      INTEGRITY_REBUILD_INTERVAL: "${INTEGRITY_REBUILD_INTERVAL:-2.0}"
+    volumes:
+      # 可信清单：固定 目录 + 文件名 -> SHA-256，只读挂载
+      - ./deploy/manifest.json:/etc/integrity/manifest.json:ro
+      # 被监视的配置目录：演示时从宿主机修改 ./deploy/config 即可触发监测
+      - ./deploy/config:/etc/integrity-demo:rw
     restart: unless-stopped
-    # 纯计算服务：只读根文件系统、无特权、不挂主机目录
+    # 纯计算服务：只读根文件系统、无特权；仅显式挂载上述两个路径
     read_only: true
     security_opt:
       - no-new-privileges:true
